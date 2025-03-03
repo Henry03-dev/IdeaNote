@@ -1,133 +1,233 @@
-import React, { useRef, useState, useEffect } from "react";
+import React, { useRef, useState } from "react";
+import { FaPlay, FaPause, FaVolumeUp, FaVolumeMute } from "react-icons/fa";
 
 const Video = () => {
     const videoRef = useRef(null);
-    const hiddenVideoRef = useRef(null);
-    const canvasRef = useRef(null);
-    const [thumbnail, setThumbnail] = useState(null);
-    const [previewPos, setPreviewPos] = useState({ left: 0, visible: false });
-    const [lastRequestedTime, setLastRequestedTime] = useState(null);
+    const [isPlaying, setIsPlaying] = useState(false);
+    const [showIcon, setShowIcon] = useState(false);
+    const [fadeOut, setFadeOut] = useState(false);
+    const [volume, setVolume] = useState(1);
+    const [prevVolume, setPrevVolume] = useState(1);
+    const [isMuted, setIsMuted] = useState(false);
+    const [showVolumeBar, setShowVolumeBar] = useState(false);
+    const [progress, setProgress] = useState(0); // 🔥 progress 상태 추가
 
-    useEffect(() => {
-        const video = videoRef.current;
-        const hiddenVideo = hiddenVideoRef.current;
-        const canvas = canvasRef.current;
-        const ctx = canvas.getContext("2d");
+    let volumeTimeout = null;
 
-        if (!video || !hiddenVideo || !canvas) return;
-
-        const handleSeeked = () => {
-            if (hiddenVideo.readyState >= 2) {
-                ctx.drawImage(hiddenVideo, 0, 0, canvas.width, canvas.height);
-                setThumbnail(canvas.toDataURL("image/png"));
+    // 재생 / 정지 토글
+    const togglePlay = (e) => {
+        if (e.target.closest(".no-click")) return;
+        if (videoRef.current) {
+            if (isPlaying) {
+                videoRef.current.pause();
+            } else {
+                videoRef.current.play();
             }
-        };
+            setIsPlaying(!isPlaying);
+            showIconWithFadeOut();
+        }
+    };
 
-        const handleMouseMove = (e) => {
-            const rect = video.getBoundingClientRect();
-            const offsetX = e.clientX - rect.left;
+    // 아이콘을 표시하고 서서히 사라지게 함
+    const showIconWithFadeOut = () => {
+        setShowIcon(true);
+        setFadeOut(false);
+        setTimeout(() => setFadeOut(true), 100);
+        setTimeout(() => setShowIcon(false), 300);
+    };
 
-            // 🎯 마우스가 재생 바 위에 있을 때만 미리보기 표시
-            if (e.clientY < rect.bottom - 40) {
-                setPreviewPos((prev) => ({ ...prev, visible: false }));
-                return;
+    // 🔥 음소거 토글
+    const toggleMute = () => {
+        if (videoRef.current) {
+            if (isMuted) {
+                setVolume(prevVolume);
+                videoRef.current.volume = prevVolume;
+            } else {
+                setPrevVolume(volume);
+                setVolume(0);
+                videoRef.current.volume = 0;
             }
+            setIsMuted(!isMuted);
+        }
+    };
 
-            let progress = offsetX / rect.width;
-            progress = Math.min(Math.max(0, progress), 1);
-            const previewTime = hiddenVideo.duration * progress;
+    // 볼륨 조절
+    const handleVolumeChange = (event) => {
+        const newVolume = parseFloat(event.target.value);
+        setVolume(newVolume);
+        if (videoRef.current) {
+            videoRef.current.volume = newVolume;
+        }
+        setIsMuted(newVolume === 0);
+    };
 
-            // 불필요한 요청 방지
-            if (lastRequestedTime !== previewTime) {
-                setLastRequestedTime(previewTime);
-                hiddenVideo.currentTime = previewTime;
-            }
+    // 볼륨 바 표시
+    const handleMouseEnter = () => {
+        if (volumeTimeout) clearTimeout(volumeTimeout);
+        setShowVolumeBar(true);
+    };
 
-            // 🎯 X값은 마우스를 따라가고, Y값은 고정
-            setPreviewPos({ 
-                left: offsetX, 
-                visible: true 
-            });
-        };
+    // 볼륨 바 숨김 (0.3초 후)
+    const handleMouseLeave = () => {
+        volumeTimeout = setTimeout(() => {
+            setShowVolumeBar(false);
+        }, 300);
+    };
 
-        const handleMouseLeave = () => {
-            setPreviewPos((prev) => ({ ...prev, visible: false }));
-        };
+    // 🔥 비디오 진행 업데이트
+    const handleTimeUpdate = () => {
+        if (videoRef.current) {
+            const percentage = (videoRef.current.currentTime / videoRef.current.duration) * 100;
+            setProgress(percentage);
+        }
+    };
 
-        hiddenVideo.addEventListener("seeked", handleSeeked);
-        video.addEventListener("mousemove", handleMouseMove);
-        video.addEventListener("mouseleave", handleMouseLeave);
-
-        return () => {
-            hiddenVideo.removeEventListener("seeked", handleSeeked);
-            video.removeEventListener("mousemove", handleMouseMove);
-            video.removeEventListener("mouseleave", handleMouseLeave);
-        };
-    }, [lastRequestedTime]);
+    // 🔥 재생 바 클릭 시 해당 위치로 이동
+    const handleSeek = (event) => {
+        if (videoRef.current) {
+            const rect = event.target.getBoundingClientRect();
+            const offsetX = event.clientX - rect.left;
+            const newTime = (offsetX / rect.width) * videoRef.current.duration;
+            videoRef.current.currentTime = newTime;
+        }
+    };
 
     return (
-        <div 
-            style={{ 
-                width: "100%", 
-                position: "relative",
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                margin: "0 auto",
-            }}
-        >
-            <video 
-                ref={videoRef} 
-                controls
-                style={{
-                    width: "90%",
-                    maxWidth: "800px",
-                    borderRadius: "12px",
-                    overflow: "hidden",
-                    marginTop: "20px",
-                }}
-            >
-                <source src="/video/test.mp4" type="video/mp4" />
-                당신의 브라우저는 비디오 태그를 지원하지 않습니다.
-            </video>
+        <div style={styles.container}>
+            <div style={styles.videoWrapper} onClick={togglePlay}>
+                <video ref={videoRef} width={600} style={styles.video} onTimeUpdate={handleTimeUpdate}>
+                    <source src="video/sample.mp4" type="video/mp4" />
+                    당신의 브라우저는 비디오 태그를 지원하지 않습니다.
+                </video>
 
-            <h2 style={{ 
-                alignSelf: "flex-start",
-                marginTop: "10px", 
-                marginLeft: "5%",
-                textAlign: "left" 
-            }}>
-                제목
-            </h2>
+                {/* 🔥 재생 바 (진행 표시 & 클릭 시 이동) */}
+                <div style={styles.progressBar} onClick={handleSeek}>
+                    <div style={{ ...styles.progress, width: `${progress}%` }} />
+                </div>
 
-            {previewPos.visible && thumbnail && videoRef.current && (
-                <img
-                    src={thumbnail}
-                    alt="미리보기"
-                    style={{
-                        position: "absolute",
-                        bottom: "50px", // 🎯 Y값 고정 (비디오 컨트롤 바 위)
-                        left: `${previewPos.left}px`, 
-                        transform: "translateX(-50%)", // 정중앙 정렬
-                        width: 120,
-                        height: 70,
-                        border: "2px solid #fff",
-                        borderRadius: "8px",
-                        overflow: "hidden",
-                        boxShadow: "0 2px 5px rgba(0, 0, 0, 0.3)",
-                        background: "#000",
-                        pointerEvents: "none"
-                    }}
-                />
-            )}
+                {/* 중앙 재생/일시정지 아이콘 */}
+                {showIcon && (
+                    <div style={{ 
+                        ...styles.playButton, 
+                        opacity: fadeOut ? 0 : 1, 
+                        transition: "opacity 0.5s ease-in-out"
+                    }}>
+                        {isPlaying ? <FaPause size={20} color="white" /> : <FaPlay size={20} color="white" />}
+                    </div>
+                )}
 
-            <video ref={hiddenVideoRef} width={160} height={90} style={{ display: "none" }}>
-                <source src="/video/test.mp4" type="video/mp4" />
-            </video>
+                {/* 🔥 재생 버튼 */}
+                <button onClick={togglePlay} style={styles.controlButton}>
+                    {isPlaying ? <FaPause size={18} color="white" /> : <FaPlay size={18} color="white" />}
+                </button>
 
-            <canvas ref={canvasRef} width={160} height={90} style={{ display: "none" }} />
+                {/* 🔥 볼륨 컨트롤 */}
+                <div className="no-click" style={styles.noClickZone}>
+                    <div 
+                        style={styles.volumeWrapper}
+                        onMouseEnter={handleMouseEnter}
+                        onMouseLeave={handleMouseLeave}
+                    >
+                        <button onClick={toggleMute} style={styles.volumeButton}>
+                            {isMuted ? <FaVolumeMute size={18} color="white" /> : <FaVolumeUp size={18} color="white" />}
+                        </button>
+
+                        {showVolumeBar && (
+                            <input 
+                                type="range"
+                                min="0"
+                                max="1"
+                                step="0.05"
+                                value={volume}
+                                onChange={handleVolumeChange}
+                                style={styles.volumeSlider}
+                            />
+                        )}
+                    </div>
+                </div>
+            </div>
         </div>
     );
+};
+
+// 스타일
+const styles = {
+    container: { textAlign: "center", marginTop: "20px" },
+    videoWrapper: {
+        position: "relative",
+        display: "inline-block",
+        cursor: "pointer",
+        overflow: "hidden",
+    },
+    video: { display: "block", borderRadius: "10px" },
+    playButton: {
+        position: "absolute",
+        top: "50%",
+        left: "50%",
+        transform: "translate(-50%, -50%)",
+        background: "rgba(0, 0, 0, 0.6)", 
+        borderRadius: "50%",
+        padding: "20px",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        cursor: "pointer",
+    },
+    controlButton: {
+        position: "absolute",
+        bottom: "5px",
+        left: "10px",
+        background: "none",
+        border: "none",
+        cursor: "pointer",
+        padding: "5px",
+    },
+    noClickZone: {
+        position: "absolute",
+        bottom: "0",
+        right: "0",
+        width: "91%",
+        height: "40px",
+        display: "flex",
+        alignItems: "center",
+    },
+    volumeWrapper: {
+        position: "relative",
+        display: "flex",
+        alignItems: "center",
+        cursor: "pointer",
+    },
+    volumeButton: {
+        background: "none",
+        border: "none",
+        cursor: "pointer",
+        padding: "5px",
+    },
+    volumeSlider: {
+        width: "60px",
+        height: "4px", 
+        cursor: "pointer",
+        appearance: "none",
+        background: "white",
+        borderRadius: "5px",
+        outline: "none",
+        position: "absolute",
+        left: "30px",
+        top: "10px",
+    },
+    progressBar: {
+        position: "absolute",
+        bottom: "45px",
+        left: "0",
+        width: "100%",
+        height: "5px",
+        background: "rgba(255, 255, 255, 0.3)",
+        cursor: "pointer",
+    },
+    progress: {
+        height: "100%",
+        background: "blue",
+    },
 };
 
 export default Video;
