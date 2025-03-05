@@ -7,6 +7,7 @@ import Home from "./pages/Home";
 import Memo from "./pages/Memo";
 import Video from "./pages/Video";
 import Video2 from "./pages/Video2";
+import Video3 from "./pages/Video3";
 
 function App() {
   return (
@@ -19,6 +20,7 @@ function App() {
           <li><Link className="nav__li" to="/memo"><a>Memo</a></Link></li>
           <li><Link className="nav__li" to="/video"><a>Video</a></Link></li>
           <li><Link className="nav__li" to="/video2"><a>Video2</a></Link></li>
+          <li><Link className="nav__li" to="/video3"><a>Video3</a></Link></li>          
         </ul>
         <a>menu</a>
       </nav>
@@ -29,6 +31,7 @@ function App() {
           <Route path="/memo" element={<Memo />} />
           <Route path="/video" element={<Video />} />
           <Route path="/video2" element={<Video2 />} />
+          <Route path="/video3" element={<Video3 />} />
         </Routes>
         </div>
     </div>

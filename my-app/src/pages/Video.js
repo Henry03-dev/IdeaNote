@@ -101,9 +101,12 @@ const Video = () => {
                 </video>
 
                 {/* 🔥 재생 바 (진행 표시 & 클릭 시 이동) */}
+                
                 <div style={styles.progressBar} onClick={handleSeek}>
+                    <div className="no-click" style={styles.noClickZone2} />
                     <div style={{ ...styles.progress, width: `${progress}%` }} />
                 </div>
+
 
                 {/* 중앙 재생/일시정지 아이콘 */}
                 {showIcon && (
@@ -136,8 +139,8 @@ const Video = () => {
                             <input 
                                 type="range"
                                 min="0"
-                                max="1"
-                                step="0.05"
+                                max="0.5"
+                                step="0.01"
                                 value={volume}
                                 onChange={handleVolumeChange}
                                 style={styles.volumeSlider}
@@ -191,6 +194,15 @@ const styles = {
         display: "flex",
         alignItems: "center",
     },
+    noClickZone2: {
+        position: "absolute",
+        bottom: "0",
+        right: "0",
+        width: "100%",
+        height: "100%",
+        display: "flex",
+        alignItems: "center",
+    },
     volumeWrapper: {
         position: "relative",
         display: "flex",
@@ -218,15 +230,15 @@ const styles = {
     progressBar: {
         position: "absolute",
         bottom: "45px",
-        left: "0",
-        width: "100%",
+        left: "calc(1.5%)",
+        width: "97%",
         height: "5px",
         background: "rgba(255, 255, 255, 0.3)",
         cursor: "pointer",
     },
     progress: {
         height: "100%",
-        background: "blue",
+        background: "white",
     },
 };
 
