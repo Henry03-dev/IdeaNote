@@ -1,8 +1,14 @@
-import React, { useRef, useState } from "react";
+import React, { useRef, useState, useEffect } from "react";
 import { FaPlay, FaPause, FaVolumeUp, FaVolumeMute } from "react-icons/fa";
 
 const Video = () => {
     const videoRef = useRef(null);
+    const hiddenVideoRef = useRef(null); // 프레임 캡처용 숨겨진 비디오
+    const canvasRef = useRef(null);
+    const progressBarRef = useRef(null);
+
+    const [thumbnail, setThumbnail] = useState(null);
+    const [previewPos, setPreviewPos] = useState({ left: 0, visible: false, time: 0 });
     const [isPlaying, setIsPlaying] = useState(false);
     const [showIcon, setShowIcon] = useState(false);
     const [fadeOut, setFadeOut] = useState(false);
@@ -82,15 +88,68 @@ const Video = () => {
         }
     };
 
-    // 🔥 재생 바 클릭 시 해당 위치로 이동
-    const handleSeek = (event) => {
-        if (videoRef.current) {
-            const rect = event.target.getBoundingClientRect();
-            const offsetX = event.clientX - rect.left;
-            const newTime = (offsetX / rect.width) * videoRef.current.duration;
-            videoRef.current.currentTime = newTime;
-        }
+    useEffect(() => {
+            const hiddenVideo = hiddenVideoRef.current;
+            const canvas = canvasRef.current;
+            const ctx = canvas.getContext("2d");
+    
+            let animationFrameId = null;
+    
+            const handleMouseMove = (e) => {
+                if (!hiddenVideo || !progressBarRef.current) return;
+    
+                const rect = progressBarRef.current.getBoundingClientRect();
+                const offsetX = e.clientX - rect.left;
+                const progress = offsetX / rect.width;
+                const previewTime = hiddenVideo.duration * progress;
+    
+                // 숨겨진 비디오의 특정 시간으로 이동
+                hiddenVideo.currentTime = previewTime;
+    
+                // 프레임을 실시간으로 캡처
+                const updateThumbnail = () => {
+                    ctx.drawImage(hiddenVideo, 0, 0, canvas.width, canvas.height);
+                    setThumbnail(canvas.toDataURL("image/png"));
+                    setPreviewPos({ left: offsetX, visible: true, time: previewTime });
+    
+                    animationFrameId = requestAnimationFrame(updateThumbnail);
+                };
+    
+                cancelAnimationFrame(animationFrameId);
+                animationFrameId = requestAnimationFrame(updateThumbnail);
+            };
+    
+            const handleMouseLeave = () => {
+                setPreviewPos((prev) => ({ ...prev, visible: false }));
+                cancelAnimationFrame(animationFrameId);
+            };
+    
+            if (progressBarRef.current) {
+                progressBarRef.current.addEventListener("mousemove", handleMouseMove);
+                progressBarRef.current.addEventListener("mouseleave", handleMouseLeave);
+            }
+    
+            return () => {
+                if (progressBarRef.current) {
+                    progressBarRef.current.removeEventListener("mousemove", handleMouseMove);
+                    progressBarRef.current.removeEventListener("mouseleave", handleMouseLeave);
+                }
+                cancelAnimationFrame(animationFrameId);
+            };
+        }, []);
+
+        // 재생바 클릭 시 해당 시간으로 이동
+    const handleSeek = (e) => {
+        if (!videoRef.current || !progressBarRef.current) return;
+
+        const rect = progressBarRef.current.getBoundingClientRect();
+        const offsetX = e.clientX - rect.left;
+        const progress = offsetX / rect.width;
+        const newTime = videoRef.current.duration * progress;
+
+        videoRef.current.currentTime = newTime;
     };
+
 
     return (
         <div style={styles.container}>
@@ -99,14 +158,6 @@ const Video = () => {
                     <source src="video/sample.mp4" type="video/mp4" />
                     당신의 브라우저는 비디오 태그를 지원하지 않습니다.
                 </video>
-
-                {/* 🔥 재생 바 (진행 표시 & 클릭 시 이동) */}
-                
-                <div style={styles.progressBar} onClick={handleSeek}>
-                    <div className="no-click" style={styles.noClickZone2} />
-                    <div style={{ ...styles.progress, width: `${progress}%` }} />
-                </div>
-
 
                 {/* 중앙 재생/일시정지 아이콘 */}
                 {showIcon && (
@@ -148,6 +199,42 @@ const Video = () => {
                         )}
                     </div>
                 </div>
+
+                {/* 재생바 (클릭 가능) */}
+                <div className="no-click" style={styles.noClickZone2}>
+                    <div
+                        ref={progressBarRef}
+                        style={styles.progressBar}
+                        onClick={handleSeek} // 클릭 시 해당 위치로 이동
+                    ></div>
+                </div>
+                {/* 🎞️ 썸네일 미리보기 */}
+                {previewPos.visible && (
+                    <img
+                        src={thumbnail}
+                        alt="미리보기"
+                        style={{
+                            position: "absolute",
+                            bottom: 65,
+                            left: previewPos.left,
+                            width: 180,
+                            height: 108,
+                            transform: "translateX(-50%)",
+                            border: "2px solid #fff",
+                            boxShadow: "0 2px 5px rgba(0, 0, 0, 0.3)",
+                            background: "#000",
+                        }}
+                    />
+
+                )}
+
+                {/* ⏳ 숨겨진 비디오 (프레임 캡처 전용) */}
+                <video ref={hiddenVideoRef} width={160} height={90} style={{ display: "none" }}>
+                    <source src="video/sample.mp4" type="video/mp4" />
+                </video>
+
+                {/* 🎨 썸네일 캡처용 canvas (숨김) */}
+                <canvas ref={canvasRef} width={160} height={90} style={{ display: "none" }} />
             </div>
         </div>
     );
@@ -178,7 +265,7 @@ const styles = {
     },
     controlButton: {
         position: "absolute",
-        bottom: "5px",
+        bottom: 13,
         left: "10px",
         background: "none",
         border: "none",
@@ -187,7 +274,7 @@ const styles = {
     },
     noClickZone: {
         position: "absolute",
-        bottom: "0",
+        bottom: 10,
         right: "0",
         width: "91%",
         height: "40px",
@@ -195,11 +282,11 @@ const styles = {
         alignItems: "center",
     },
     noClickZone2: {
-        position: "absolute",
-        bottom: "0",
+        position: "relative",
+        bottom: 55,
         right: "0",
         width: "100%",
-        height: "100%",
+        height: "10",
         display: "flex",
         alignItems: "center",
     },
@@ -214,6 +301,7 @@ const styles = {
         border: "none",
         cursor: "pointer",
         padding: "5px",
+        
     },
     volumeSlider: {
         width: "60px",
@@ -228,18 +316,13 @@ const styles = {
         top: "10px",
     },
     progressBar: {
-        position: "absolute",
-        bottom: "45px",
         left: "calc(1.5%)",
         width: "97%",
-        height: "5px",
+        height: 5,
         background: "rgba(255, 255, 255, 0.3)",
+        position: "relative",
         cursor: "pointer",
-    },
-    progress: {
-        height: "100%",
-        background: "white",
-    },
+    }
 };
 
 export default Video;
