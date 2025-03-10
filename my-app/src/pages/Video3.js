@@ -16,7 +16,17 @@ const Video = () => {
     const [prevVolume, setPrevVolume] = useState(1);
     const [isMuted, setIsMuted] = useState(false);
     const [showVolumeBar, setShowVolumeBar] = useState(false);
-    const [progress, setProgress] = useState(0); // 🔥 progress 상태 추가
+    const [progress, setProgress] = useState(0); // progress 상태
+
+    const [isHoveringProgressBar, setIsHoveringProgressBar] = useState(false); 
+    const handleProgressBarEnter = () => setIsHoveringProgressBar(true);
+    const handleProgressBarLeave = () => setIsHoveringProgressBar(false);
+
+    const [isMouseOverVideo, setIsMouseOverVideo] = useState(false);
+
+    const handleVideoEnter = () => setIsMouseOverVideo(true);
+    const handleVideoLeave = () => setIsMouseOverVideo(false);
+
 
     let volumeTimeout = null;
 
@@ -94,7 +104,7 @@ const Video = () => {
             const ctx = canvas.getContext("2d");
     
             let animationFrameId = null;
-    
+            
             const handleMouseMove = (e) => {
                 if (!hiddenVideo || !progressBarRef.current) return;
     
@@ -136,7 +146,7 @@ const Video = () => {
                 }
                 cancelAnimationFrame(animationFrameId);
             };
-        }, []);
+        }, [progressBarRef.current]);
 
         // 재생바 클릭 시 해당 시간으로 이동
     const handleSeek = (e) => {
@@ -153,14 +163,19 @@ const Video = () => {
 
     return (
         <div style={styles.container}>
-            <div style={styles.videoWrapper} onClick={togglePlay}>
+            <div 
+                style={styles.videoWrapper} 
+                onMouseEnter={handleVideoEnter}
+                onMouseLeave={handleVideoLeave}
+                onClick={togglePlay}
+            >
                 <video ref={videoRef} width={600} style={styles.video} onTimeUpdate={handleTimeUpdate}>
                     <source src="video/sample.mp4" type="video/mp4" />
                     당신의 브라우저는 비디오 태그를 지원하지 않습니다.
                 </video>
 
                 {/* 중앙 재생/일시정지 아이콘 */}
-                {showIcon && (
+                {isMouseOverVideo && showIcon && (
                     <div style={{ 
                         ...styles.playButton, 
                         opacity: fadeOut ? 0 : 1, 
@@ -169,65 +184,127 @@ const Video = () => {
                         {isPlaying ? <FaPause size={20} color="white" /> : <FaPlay size={20} color="white" />}
                     </div>
                 )}
-
+                
                 {/* 🔥 재생 버튼 */}
-                <button onClick={togglePlay} style={styles.controlButton}>
-                    {isPlaying ? <FaPause size={18} color="white" /> : <FaPlay size={18} color="white" />}
-                </button>
-
-                {/* 🔥 볼륨 컨트롤 */}
-                <div className="no-click" style={styles.noClickZone}>
-                    <div 
-                        style={styles.volumeWrapper}
-                        onMouseEnter={handleMouseEnter}
-                        onMouseLeave={handleMouseLeave}
+                {isMouseOverVideo && (
+  
+                    <button 
+                        onClick={togglePlay} 
+                        style={{
+                            position: "absolute",
+                            bottom: isHoveringProgressBar ? 21 : 15,
+                            left: "10px",
+                            background: "none",
+                            border: "none",
+                            cursor: "pointer",
+                            padding: "5px",
+                        }}
                     >
-                        <button onClick={toggleMute} style={styles.volumeButton}>
-                            {isMuted ? <FaVolumeMute size={18} color="white" /> : <FaVolumeUp size={18} color="white" />}
-                        </button>
+                        {isPlaying ? <FaPause size={18} color="white" /> : <FaPlay size={18} color="white" />}
+                    </button>
+                )}
+                {/* 🔥 볼륨 컨트롤 */}
+                {isMouseOverVideo && (
+                    <div 
+                        className="no-click" 
+                        style={{
+                            position: "absolute",
+                            bottom: isHoveringProgressBar ? 16 : 10,
+                            right: "0",
+                            width: "91%",
+                            height: "40px",
+                            display: "flex",
+                            alignItems: "center",
+                        }}
+                    >
+                        <div 
+                            style={styles.volumeWrapper}
+                            onMouseEnter={handleMouseEnter}
+                            onMouseLeave={handleMouseLeave}
+                        >
+                            <button onClick={toggleMute} style={styles.volumeButton}>
+                                {isMuted ? <FaVolumeMute size={18} color="white" /> : <FaVolumeUp size={18} color="white" />}
+                            </button>
 
-                        {showVolumeBar && (
-                            <input 
-                                type="range"
-                                min="0"
-                                max="0.5"
-                                step="0.01"
-                                value={volume}
-                                onChange={handleVolumeChange}
-                                style={styles.volumeSlider}
-                            />
-                        )}
+                            {showVolumeBar && (
+                                <input 
+                                    type="range"
+                                    min="0"
+                                    max="0.5"
+                                    step="0.01"
+                                    value={volume}
+                                    onChange={handleVolumeChange}
+                                    style={styles.volumeSlider}
+                                />
+                            )}
+                        </div>
                     </div>
-                </div>
+                )}
+                
+                {/* 재생바 */}
+                {isMouseOverVideo && (
+                    <div 
+                        className="no-click" 
+                        style={{
+                            position: "relative",
+                            bottom: isHoveringProgressBar ? 58 : 55,
+                            right: "0",
+                            width: "100%",
+                            height: "10",
+                            display: "flex",
+                            alignItems: "center",
+                        }}
+                    >
+                        <div
+                            ref={progressBarRef}
+                            style={{
+                                left: "calc(1.5%)",
+                                width: "97%",
+                                height: isHoveringProgressBar ? 11 : 5,
+                                background: "rgba(255, 255, 255, 0.3)",
+                                position: "relative",
+                                cursor: "pointer",
+                            }}
+                            onMouseEnter={handleProgressBarEnter}
+                            onMouseLeave={handleProgressBarLeave}
+                            onClick={handleSeek} // 클릭 시 해당 위치로 이동
 
-                {/* 재생바 (클릭 가능) */}
-                <div className="no-click" style={styles.noClickZone2}>
-                    <div
-                        ref={progressBarRef}
-                        style={styles.progressBar}
-                        onClick={handleSeek} // 클릭 시 해당 위치로 이동
-                    ></div>
-                </div>
+                        >
+                            {/* 현재 재생 위치 표시 (progress track) */}
+                            <div
+                                style={{
+                                    width: `${progress}%`,
+                                    height: "100%",
+                                    background: "rgb(218, 218, 218)",
+                                    position: "absolute",
+                                    top: 0,
+                                    left: 0,
+                                    transition: "width 0.1s linear"
+                                }}
+                            />
+                        </div>
+                    </div>
+                )}
+                
                 {/* 🎞️ 썸네일 미리보기 */}
-                {previewPos.visible && (
+                {isMouseOverVideo && previewPos.visible && (
                     <img
                         src={thumbnail}
                         alt="미리보기"
                         style={{
                             position: "absolute",
-                            bottom: 65,
+                            bottom: 75,
                             left: previewPos.left,
-                            width: 100,
-                            height: 60,
+                            width: 180,
+                            height: 108,
                             transform: "translateX(-50%)",
                             border: "2px solid #fff",
                             boxShadow: "0 2px 5px rgba(0, 0, 0, 0.3)",
                             background: "#000",
                         }}
                     />
-
+                
                 )}
-
                 {/* ⏳ 숨겨진 비디오 (프레임 캡처 전용) */}
                 <video ref={hiddenVideoRef} width={160} height={90} style={{ display: "none" }}>
                     <source src="video/sample.mp4" type="video/mp4" />
@@ -242,7 +319,7 @@ const Video = () => {
 
 // 스타일
 const styles = {
-    container: { textAlign: "center", marginTop: "20px" },
+    container: { textAlign: "center", marginTop: "30px" },
     videoWrapper: {
         position: "relative",
         display: "inline-block",
@@ -262,33 +339,6 @@ const styles = {
         alignItems: "center",
         justifyContent: "center",
         cursor: "pointer",
-    },
-    controlButton: {
-        position: "absolute",
-        bottom: 13,
-        left: "10px",
-        background: "none",
-        border: "none",
-        cursor: "pointer",
-        padding: "5px",
-    },
-    noClickZone: {
-        position: "absolute",
-        bottom: 10,
-        right: "0",
-        width: "91%",
-        height: "40px",
-        display: "flex",
-        alignItems: "center",
-    },
-    noClickZone2: {
-        position: "relative",
-        bottom: 55,
-        right: "0",
-        width: "100%",
-        height: "10",
-        display: "flex",
-        alignItems: "center",
     },
     volumeWrapper: {
         position: "relative",
@@ -315,14 +365,6 @@ const styles = {
         left: "30px",
         top: "10px",
     },
-    progressBar: {
-        left: "calc(1.5%)",
-        width: "97%",
-        height: 5,
-        background: "rgba(255, 255, 255, 0.3)",
-        position: "relative",
-        cursor: "pointer",
-    }
 };
 
 export default Video;
